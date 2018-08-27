@@ -1,0 +1,83 @@
+#!/bin/bash
+
+CONFIG_FILE=config.sh
+DEST_FILE=dest.list
+SERVER=
+USERTOKEN=
+
+# config
+if [ ! -f $CONFIG_FILE ]; then
+    echo "No found $CONFIG_FILE"
+    exit 1
+fi
+
+source $CONFIG_FILE
+
+if [ -z "$SERVER" ]; then
+    echo "No definition SERVER in $CONFIG_FILE"
+    exit 1
+fi
+
+if [ -z "$USERTOKEN" ]; then
+    echo "No definition USERTOKEN in $CONFIG_FILE"
+    exit 1
+fi
+
+if [ ! -f $DEST_FILE ]; then
+    echo "No found $DEST_FILE"
+    exit 1
+fi
+
+send-data() {
+    data="$1"
+    cat $DEST_FILE |
+        while read url; do
+            curl "$url" --data "$data"
+        done
+}
+
+send() {
+    event_type=$1
+    data=$2
+    if [ $# -eq 1 ]; then
+        send-data "{\"event_type\": \"$event_type\"}"
+    elif [ $# -eq 2 ]; then
+        send-data "{\"event_type\": \"$event_type\", \"data\": $data}"
+    fi
+}
+
+read-stream() {
+    URL="${SERVER}/api/v1/streaming/user"
+    URL=$(echo "$URL" | sed 's,https://,,g; s,http://,,g; s,//,/,g; s,.*,https://&,')
+    curl -sLN -XGET -H "Authorization: Bearer ${USERTOKEN}" "$URL" 2>&1 |
+        while read -r line; do
+            if [ -z "$line" ]; then
+                continue
+            fi
+            case "$line" in
+                :thump )
+                    send thump
+                    ;;
+                "event: update" )
+                    read -r line
+                    data=${line#data: }
+                    send update "$data"
+                    ;;
+                "event: notification" )
+                    read -r line
+                    data=${line#data: }
+                    send notification "$data"
+                    ;;
+                * )
+                    echo "[*] $line"
+                    ;;
+            esac
+        done
+    }
+
+while :; do
+    echo "[=] start"
+    read-stream
+    echo "[=] stream stopped"
+    sleep 1
+done
