@@ -39,11 +39,13 @@ send-data() {
 send() {
     event_type=$1
     data=$2
+    echo "[= $(date)] send $event_type $data"
     if [ $# -eq 1 ]; then
         send-data "{\"event_type\": \"$event_type\"}"
     elif [ $# -eq 2 ]; then
         send-data "{\"event_type\": \"$event_type\", \"data\": $data}"
     fi
+    echo
 }
 
 read-stream() {
@@ -69,15 +71,15 @@ read-stream() {
                     send notification "$data"
                     ;;
                 * )
-                    echo "[*] $line"
+                    echo "[* $(date)] $line"
                     ;;
             esac
         done
     }
 
 while :; do
-    echo "[=] start"
+    echo "[= $(date)] start"
     read-stream
-    echo "[=] stream stopped"
+    echo "[= $(date)] stream stopped"
     sleep 1
 done
